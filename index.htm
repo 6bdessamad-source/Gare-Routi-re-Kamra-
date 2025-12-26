@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    
+    <title>Gare routière KAMRA RABAT</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- GENERAL RESET & VARS --- */
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.4);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            --text-main: #2c3e50;
+            --text-light: #7f8c8d;
+            --accent: #2c3e50; /* Deep blue/grey architectural accent */
+        }
+
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #dbe4eb; 
+            font-family: 'Montserrat', sans-serif; 
+            color: var(--text-main);
+        }
+        canvas { display: block; outline: none; }
+        
+        /* --- TITLE --- */
+        #title-overlay {
+            position: absolute; 
+            top: 20px; 
+            left: 20px;
+            pointer-events: none; 
+            z-index: 10;
+        }
+        
+        h1 {
+            margin: 0;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 12px 24px;
+            border-radius: 12px;
+            box-shadow: var(--glass-shadow);
+            border: var(--glass-border);
+            font-size: 18px; 
+            display: inline-block;
+            pointer-events: auto; 
+        }
+        
+        h1 span {
+            display: block;
+            font-size: 10px;
+            font-weight: 400;
+            color: var(--text-light);
+            margin-top: 2px;
+            letter-spacing: 1px;
+        }
+
+        /* --- INFO CARD --- */
+        #info-card {
+            position: absolute;
+            top: 90px;
+            left: 20px;
+            width: 300px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: var(--glass-shadow);
+            border: var(--glass-border);
+            z-index: 90;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #444;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transform-origin: top left;
+        }
+
+        #info-card p { margin: 0; text-align: justify; }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: color 0.2s;
+            line-height: 1;
+        }
+        .close-btn:hover { color: var(--accent); }
+
+        /* Floating Info Toggle Button */
+        #info-toggle {
+            position: absolute;
+            top: 90px;
+            left: 20px;
+            width: 44px;
+            height: 44px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: var(--glass-shadow);
+            z-index: 90;
+            display: flex; 
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-family: serif; 
+            font-style: italic;
+            font-size: 20px;
+            color: var(--accent);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            transform: scale(0.8);
+        }
+        #info-toggle:hover { transform: scale(1.1); }
+
+        /* --- GUI CONTAINER & STYLING --- */
+        #gui-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        /* Customizing lil-gui to look nicer */
+        .lil-gui { 
+            /* Override lil-gui CSS variables using !important to ensure they take precedence */
+            --background-color: rgba(255, 255, 255, 0.8) !important;
+            --text-color: var(--text-main) !important;
+            --title-background-color: var(--accent) !important; 
+            --title-text-color: #ffffff !important;
+            --widget-color: rgba(44, 62, 80, 0.1) !important; /* Subtler track color */
+            --hover-color: rgba(44, 62, 80, 0.15) !important;
+            --focus-color: rgba(44, 62, 80, 0.2) !important;
+            --number-color: var(--accent) !important;
+            --string-color: var(--accent) !important;
+            
+            border-radius: 12px !important;
+            box-shadow: var(--glass-shadow) !important;
+            backdrop-filter: blur(10px);
+            border: var(--glass-border) !important;
+        }
+
+        /* Styling the slider track */
+        .lil-gui .controller.number .slider {
+            height: 6px !important; /* Thinner track */
+            border-radius: 3px !important;
+            margin-top: 7px !important;
+        }
+
+        /* Styling the slider thumb (the grabby knob) for Webkit (Chrome/Safari) */
+        .lil-gui .controller.number .slider::-webkit-slider-thumb {
+            width: 16px !important;
+            height: 16px !important;
+            background: var(--accent) !important;
+            border: 2px solid white !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+            margin-top: -5px !important; /* Center on track */
+        }
+
+        /* Styling the slider thumb for Firefox */
+        .lil-gui .controller.number .slider::-moz-range-thumb {
+            width: 16px !important;
+            height: 16px !important;
+            background: var(--accent) !important;
+            border: 2px solid white !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+            border-radius: 50% !important;
+        }
+        
+        /* Polishing color pickers */
+        .lil-gui .controller.color .display {
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        /* --- FOOTER --- */
+        #footer {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: auto;
+            min-width: 60%;
+            max-width: 90%;
+            
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            
+            border-radius: 20px;
+            border: var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            
+            padding: 12px 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .footer-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .school-logo {
+            height: 45px; 
+            width: auto;
+            border-radius: 4px;
+            opacity: 0.9;
+        }
+
+        .text-group {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .school-name {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
+        }
+
+        .credits {
+            font-size: 11px;
+            color: var(--text-main);
+            font-weight: 400;
+        }
+        .credits span { font-weight: 600; }
+
+        /* New style for the added copyright line */
+        .copyright {
+            font-size: 10px;
+            color: var(--text-light); 
+            margin-top: 3px;
+            font-weight: 400;
+            font-style: italic;
+        }
+
+        /* --- MOBILE OPTIMIZATION --- */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 14px; 
+                padding: 10px 15px;
+            }
+            h1 span { font-size: 9px; }
+
+            /* Info Card Mobile */
+            #info-card {
+                top: auto;
+                bottom: 110px; /* Above footer */
+                left: 50%;
+                transform: translateX(-50%);
+                width: 85%;
+                font-size: 12px;
+                padding: 15px 20px;
+                box-sizing: border-box;
+            }
+            
+            #info-toggle {
+                top: 85px; 
+                left: 20px;
+            }
+
+            /* GUI Mobile */
+            #gui-container {
+                top: 20px;
+                right: 10px;
+            }
+            .lil-gui { 
+                --width: 260px; 
+                max-width: 90vw;
+            }
+            .lil-gui.autoPlace { z-index: 1001; }
+
+            /* Footer Mobile */
+            #footer {
+                width: 90%;
+                bottom: 15px;
+                padding: 12px 15px;
+                border-radius: 16px;
+                flex-direction: column;
+            }
+            .footer-content {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            .school-logo { height: 35px; }
+            .school-name { font-size: 11px; margin-bottom: 2px; }
+            .credits { font-size: 10px; line-height: 1.4; }
+            .copyright { font-size: 9px; }
+        }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+          "lil-gui": "https://unpkg.com/lil-gui@0.19.1/dist/lil-gui.esm.min.js"
+        }
+      }
+    </script>
+</head>
+<body>
+
+    <div id="title-overlay">
+        <h1>Gare routière Kamra <span>Rabat, Maroc</span></h1>
+    </div>
+
+    <div id="info-card">
+        <button class="close-btn" id="close-info-btn">&times;</button>
+        <p>
+            This platform provides an interactive 3D immersion dedicated to the memory of the Kamra Bus Station in Rabat. 
+            By digitally reconstructing this iconic architecture, the project aims to document and celebrate its unique heritage. 
+            Explore the monument from every angle to better appreciate the importance of its architectural preservation.
+        </p>
+    </div>
+
+    <div id="info-toggle">i</div>
+
+    <div id="gui-container"></div>
+
+    <footer id="footer">
+        <div class="footer-content">
+            <img src="ena.png" alt="Logo ENA" class="school-logo" onerror="this.style.display='none';"> 
+            
+            <div class="text-group">
+                <div class="school-name">Ecole Nationale d'Architecture de Rabat</div>
+                <div class="credits">
+                    Réalisé par : <span>SAFHA Abdessamad</span> • <span>Hiba Laqlioual</span> • <span>Maria Benbarka</span>
+                </div>
+                <div class="copyright">All rights reserved to the makers</div>
+            </div>
+        </div>
+    </footer>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import GUI from 'lil-gui';
+
+    // --- UI Interaction Logic ---
+    const infoCard = document.getElementById('info-card');
+    const closeBtn = document.getElementById('close-info-btn');
+    const toggleBtn = document.getElementById('info-toggle');
+
+    function toggleInfo(show) {
+        if (show) {
+            infoCard.style.opacity = '1';
+            infoCard.style.transform = 'translate(-50%, 0) scale(1)'; // Handle mobile center
+            if(window.innerWidth >= 769) infoCard.style.transform = 'scale(1)'; // Desktop reset
+            
+            infoCard.style.pointerEvents = 'auto';
+            toggleBtn.style.opacity = '0';
+            toggleBtn.style.pointerEvents = 'none';
+            toggleBtn.style.transform = 'scale(0.8)';
+        } else {
+            infoCard.style.opacity = '0';
+            infoCard.style.pointerEvents = 'none';
+            if(window.innerWidth < 769) infoCard.style.transform = 'translate(-50%, 20px) scale(0.95)';
+            else infoCard.style.transform = 'scale(0.95)';
+
+            toggleBtn.style.opacity = '1';
+            toggleBtn.style.pointerEvents = 'auto';
+            toggleBtn.style.transform = 'scale(1)';
+        }
+    }
+
+    // Initial check for layout
+    if(window.innerWidth < 769) infoCard.style.transform = 'translateX(-50%)';
+
+    closeBtn.addEventListener('click', () => toggleInfo(false));
+    toggleBtn.addEventListener('click', () => toggleInfo(true));
+
+    // --- Scene Setup ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xdbe4eb); 
+    scene.fog = new THREE.FogExp2(0xdbe4eb, 0.002);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+    camera.position.set(0, 50, 180);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02;
+
+    // --- Lighting ---
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+    hemiLight.position.set(0, 200, 0);
+    scene.add(hemiLight);
+
+    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+    sun.position.set(60, 120, 60);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 4096;
+    sun.shadow.mapSize.height = 4096;
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 500;
+    const d = 100;
+    sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
+    sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
+    sun.shadow.bias = -0.0001;
+    sun.shadow.normalBias = 0.05;
+    scene.add(sun);
+
+    // --- Materials ---
+    const matConcrete = new THREE.MeshStandardMaterial({ roughness: 0.8, side: THREE.DoubleSide, flatShading: true });
+    const matCrown = new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide, flatShading: true });
+    const matCol = new THREE.MeshStandardMaterial({ roughness: 0.7 });
+    const matGround = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 });
+
+    const matOutline = new THREE.MeshBasicMaterial({
+        color: 0x000000, wireframe: true, side: THREE.DoubleSide,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4,
+        transparent: true, opacity: 0.6
+    });
+
+    // --- Object Groups ---
+    let mainBuildingGroup = new THREE.Group();
+    let crownGroup = new THREE.Group();
+    scene.add(mainBuildingGroup);
+    scene.add(crownGroup);
+    let groundMesh;
+
+    // --- PARAMETERS ---
+    const params = {
+        b_segments: 16, 
+        b_hCol: 8, b_amplitude: 10, b_rCol: 45, b_rInner: 7,
+        b_hCenter: 29.25, b_overhang: 12,        
+
+        c_visible: true, c_amplitude: 3, c_rTopCap: 3, c_colRadius: 0.25,
+        c_colHeight: 1.0125, c_coneHeight: 2.421, c_overhang: 3.19,      
+        
+        col_roof: '#ffff70', col_crown: '#6d7e4e', col_cols: '#ffffe5', col_ground: '#151515', 
+        show_outline: true     
+    };
+
+    function generate() {
+        mainBuildingGroup.clear();
+        crownGroup.clear();
+        if(groundMesh) scene.remove(groundMesh);
+
+        // Apply Colors
+        matConcrete.color.set(params.col_roof);
+        matCrown.color.set(params.col_crown);
+        matCol.color.set(params.col_cols);
+        matGround.color.set(params.col_ground);
+
+        const bTotalSegs = params.b_segments * 2;
+
+        // --- A. MAIN BUILDING ---
+        const b_rPeak = params.b_rCol + params.b_overhang; 
+        const b_hPeak = params.b_hCol + params.b_amplitude;
+
+        // Roof
+        const roofGeo = new THREE.BufferGeometry();
+        const rPos = []; const rIdx = [];
+        for(let i=0; i<bTotalSegs; i++){
+            const ang = (i/bTotalSegs) * Math.PI * 2;
+            const isValley = i % 2 === 0;
+            rPos.push(Math.cos(ang)*params.b_rInner, params.b_hCenter, Math.sin(ang)*params.b_rInner);
+            const r = isValley ? params.b_rCol : b_rPeak;
+            const h = isValley ? params.b_hCol : b_hPeak;
+            rPos.push(Math.cos(ang)*r, h, Math.sin(ang)*r);
+        }
+        for(let i=0; i<bTotalSegs; i++){
+            const ci=i*2; const co=i*2+1; const n=(i+1)%bTotalSegs; const ni=n*2; const no=n*2+1;
+            rIdx.push(ci, co, ni); rIdx.push(co, no, ni);
+        }
+        roofGeo.setAttribute('position', new THREE.Float32BufferAttribute(rPos, 3));
+        roofGeo.setIndex(rIdx); roofGeo.computeVertexNormals();
+        
+        const roofMesh = new THREE.Mesh(roofGeo, matConcrete);
+        roofMesh.castShadow = true; roofMesh.receiveShadow = true;
+        mainBuildingGroup.add(roofMesh);
+        if(params.show_outline) mainBuildingGroup.add(new THREE.Mesh(roofGeo, matOutline));
+
+        // Columns
+        const colGeo = new THREE.BoxGeometry(1.5, params.b_hCol, 1.5);
+        for(let i=0; i<bTotalSegs; i+=2){
+            const ang = (i/bTotalSegs) * Math.PI * 2;
+            const m = new THREE.Mesh(colGeo, matCol);
+            m.position.set(Math.cos(ang)*params.b_rCol, params.b_hCol/2, Math.sin(ang)*params.b_rCol);
+            m.lookAt(0, params.b_hCol/2, 0);
+            m.castShadow = true; m.receiveShadow = true;
+            mainBuildingGroup.add(m);
+            if(params.show_outline){
+                 const mo = new THREE.Mesh(colGeo, matOutline);
+                 mo.position.copy(m.position); mo.rotation.copy(m.rotation);
+                 mainBuildingGroup.add(mo);
+            }
+        }
+
+        // --- B. CROWN ---
+        if(params.c_visible) {
+            const cTotalSegs = bTotalSegs; 
+            const yCrownBaseLevel = params.b_hCenter + params.c_colHeight;
+            const c_hCenterAbs = yCrownBaseLevel + params.c_coneHeight;
+            const c_hValleyAbs = yCrownBaseLevel;
+            const c_hPeakAbs = yCrownBaseLevel + params.c_amplitude;
+            const rCrownInner = params.b_rInner;
+            const c_rPeak = rCrownInner + params.c_overhang;
+
+            const crownGeo = new THREE.BufferGeometry();
+            const cPos = []; const cIdx = [];
+            for(let i=0; i<cTotalSegs; i++){
+                const ang = (i/cTotalSegs) * Math.PI * 2;
+                const isValley = i % 2 === 0;
+                cPos.push(Math.cos(ang)*params.c_rTopCap, c_hCenterAbs, Math.sin(ang)*params.c_rTopCap);
+                const r = isValley ? rCrownInner : c_rPeak;
+                const h = isValley ? c_hValleyAbs : c_hPeakAbs;
+                cPos.push(Math.cos(ang)*r, h, Math.sin(ang)*r);
+            }
+            for(let i=0; i<cTotalSegs; i++){
+                const ci=i*2; const co=i*2+1; const n=(i+1)%cTotalSegs; const ni=n*2; const no=n*2+1;
+                cIdx.push(ci, co, ni); cIdx.push(co, no, ni);
+            }
+            crownGeo.setAttribute('position', new THREE.Float32BufferAttribute(cPos, 3));
+            crownGeo.setIndex(cIdx); crownGeo.computeVertexNormals();
+            
+            const crownRoofMesh = new THREE.Mesh(crownGeo, matCrown);
+            crownRoofMesh.castShadow = true; crownRoofMesh.receiveShadow = true;
+            crownGroup.add(crownRoofMesh);
+            if(params.show_outline) crownGroup.add(new THREE.Mesh(crownGeo, matOutline));
+
+            const cColGeo = new THREE.CylinderGeometry(params.c_colRadius, params.c_colRadius, params.c_colHeight, 8);
+            for(let i=0; i<cTotalSegs; i+=2){ 
+                const ang = (i/cTotalSegs) * Math.PI * 2;
+                const m = new THREE.Mesh(cColGeo, matCol);
+                m.position.set(Math.cos(ang)*rCrownInner, params.b_hCenter + params.c_colHeight/2, Math.sin(ang)*rCrownInner);
+                m.castShadow = true; m.receiveShadow = true;
+                crownGroup.add(m);
+                if(params.show_outline){
+                    const mo = new THREE.Mesh(cColGeo, matOutline);
+                    mo.position.copy(m.position); crownGroup.add(mo);
+                }
+            }
+        }
+
+        // --- C. FLOOR (BLACK) ---
+        groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), matGround);
+        groundMesh.rotation.x = -Math.PI / 2; 
+        groundMesh.receiveShadow = true;
+        scene.add(groundMesh);
+    }
+
+    // --- GUI Setup ---
+    const gui = new GUI({ 
+        title: "Paramètres", 
+        width: 300,
+        container: document.getElementById('gui-container') 
+    });
+
+    const fColors = gui.addFolder('Couleurs & Rendu');
+    fColors.addColor(params, 'col_roof').name('Toit Principal').onChange(generate);
+    fColors.addColor(params, 'col_crown').name('Couronne').onChange(generate);
+    fColors.addColor(params, 'col_cols').name('Poteaux').onChange(generate);
+    fColors.addColor(params, 'col_ground').name('Sol').onChange(generate);
+    fColors.add(params, 'show_outline').name('Contours Noir').onChange(generate);
+
+    const fBuild = gui.addFolder('Géométrie Bâtiment');
+    fBuild.add(params, 'b_segments', 3, 32, 1).name('Nb. Colonnes').onChange(generate);
+    fBuild.add(params, 'b_hCenter', 15, 40).name('Hauteur Centre').onChange(generate);
+    fBuild.add(params, 'b_overhang', 5, 25).name('Porte-à-faux').onChange(generate);
+    
+    const fCrown = gui.addFolder('Géométrie Couronne');
+    fCrown.add(params, 'c_visible').name('Afficher').onChange(generate);
+    fCrown.add(params, 'c_colHeight', 0.5, 8).name('Hauteur Poteaux').onChange(generate);
+    fCrown.add(params, 'c_coneHeight', 1, 10).name('Hauteur Cône').onChange(generate);
+    fCrown.add(params, 'c_overhang', 0, 10).name('Porte-à-faux').onChange(generate);
+
+    // Auto-close on mobile
+    if (window.innerWidth < 768) {
+        gui.close();
+    }
+
+    generate(); 
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const t = Date.now() * 0.0002;
+        mainBuildingGroup.rotation.y = t;
+        crownGroup.rotation.y = t;
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    
+    window.addEventListener('resize', () => { 
+        camera.aspect = window.innerWidth / window.innerHeight; 
+        camera.updateProjectionMatrix(); 
+        renderer.setSize(window.innerWidth, window.innerHeight); 
+    });
+    
+    animate();
+</script>
+</body>
+</html>
