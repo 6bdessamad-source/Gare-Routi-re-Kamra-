@@ -43,7 +43,6 @@
             left: 20px;
             pointer-events: none; 
             z-index: 10;
-            /* Ensure title doesn't overlap settings icon on very small screens */
             max-width: calc(100% - 80px);
         }
         
@@ -123,10 +122,10 @@
         }
         .close-btn:hover { color: var(--accent); }
 
-        /* --- FLOATING TOGGLE BUTTONS (Info & Settings) --- */
+        /* --- FLOATING TOGGLE BUTTONS --- */
         .floating-btn {
             position: absolute;
-            width: 48px; /* Good touch target size */
+            width: 48px; 
             height: 48px;
             background: var(--glass-bg);
             backdrop-filter: blur(8px);
@@ -144,7 +143,6 @@
         }
         .floating-btn:hover { transform: scale(1.05); background: white; }
 
-        /* Info Toggle Specifics */
         #info-toggle {
             top: 90px;
             left: 20px;
@@ -157,11 +155,10 @@
             transform: scale(0.8);
         }
 
-        /* Settings Toggle Specifics (The Gear Icon) */
         #settings-toggle {
             top: 20px;
             right: 20px;
-            z-index: 101; /* Higher than GUI */
+            z-index: 101; 
         }
         #settings-toggle svg {
             width: 24px;
@@ -169,7 +166,6 @@
             fill: var(--accent);
             transition: transform 0.5s ease;
         }
-        /* Rotate gear when active */
         #settings-toggle.active svg {
             transform: rotate(90deg);
         }
@@ -177,14 +173,13 @@
         /* --- GUI CONTAINER --- */
         #gui-container {
             position: absolute;
-            top: 80px; /* Positioned below the gear icon */
+            top: 80px;
             right: 20px;
             z-index: 100;
             transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
             transform-origin: top right;
         }
 
-        /* Class added via JS when settings are closed */
         .gui-closed {
             opacity: 0;
             pointer-events: none;
@@ -195,7 +190,6 @@
         .lil-gui { 
             --background-color: rgba(255, 255, 255, 0.85) !important;
             --text-color: var(--text-main) !important;
-            /* We hide the title bar, so these title vars matter less now */
             --title-background-color: transparent !important; 
             --title-text-color: transparent !important;
             --widget-color: rgba(44, 62, 80, 0.1) !important;
@@ -212,12 +206,8 @@
             max-width: 90vw;
         }
 
-        /* --- CRITICAL: HIDE THE DEFAULT LIL-GUI TITLE BAR --- */
-        .lil-gui .title {
-            display: none !important;
-        }
+        .lil-gui .title { display: none !important; }
         
-        /* Slider styling */
         .lil-gui .controller.number .slider {
             height: 6px !important; 
             border-radius: 3px !important;
@@ -274,7 +264,6 @@
             h1 { font-size: 14px; padding: 10px 15px; }
             h1 span { font-size: 9px; }
 
-            /* Adjust positions for mobile */
             #settings-toggle { top: 15px; right: 15px; }
             #gui-container { top: 75px; right: 15px; }
             .lil-gui { --width: 260px; }
@@ -376,7 +365,6 @@
         }
     }
 
-    // Initialize info card position
     if(isMobile) infoCard.style.transform = 'translate(-50%, 0)';
     closeBtn.addEventListener('click', () => toggleInfo(false));
     toggleBtn.addEventListener('click', () => toggleInfo(true));
@@ -415,8 +403,14 @@
     document.body.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    // --- ZOOM SETTINGS UPDATED HERE ---
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 0.8;      // Lower speed for smoother control
+    controls.rotateSpeed = 0.8;    // Matches zoom feel
+    controls.minDistance = 20;     // Prevents clipping inside model
+    controls.maxDistance = 500;    // Limits how far you can go
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
 
     // --- Lighting ---
@@ -476,7 +470,6 @@
         crownGroup.clear();
         if(groundMesh) scene.remove(groundMesh);
 
-        // Apply Colors
         matConcrete.color.set(params.col_roof);
         matCrown.color.set(params.col_crown);
         matCol.color.set(params.col_cols);
@@ -582,7 +575,6 @@
 
     // --- GUI Setup ---
     const gui = new GUI({ 
-        // Title is hidden via CSS, but we keep it for accessibilty readers
         title: "Paramètres", 
         width: 300,
         container: document.getElementById('gui-container') 
@@ -605,9 +597,6 @@
     fCrown.add(params, 'c_colHeight', 0.5, 8).name('Hauteur Poteaux').onChange(generate);
     fCrown.add(params, 'c_coneHeight', 1, 10).name('Hauteur Cône').onChange(generate);
     fCrown.add(params, 'c_overhang', 0, 10).name('Porte-à-faux').onChange(generate);
-
-    // Note: We no longer need to close folders programmatically on mobile 
-    // because the whole container is hidden by default.
 
     generate(); 
 
