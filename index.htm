@@ -470,7 +470,6 @@
     });
 
     // --- Object Groups (CATEGORIZED FOR EXPORT) ---
-    // Explicitly naming these groups creates "g GroupName" in the OBJ file.
     const grp_Roof = new THREE.Group();
     grp_Roof.name = "01_Roof"; // Renamed for Rhino clarity
     
@@ -493,8 +492,12 @@
     // --- PARAMETERS ---
     const params = {
         b_segments: 16, 
-        b_hCol: 8, b_amplitude: 10, b_rCol: 45, b_rInner: 7,
-        b_hCenter: 29.25, b_overhang: 12,        
+        b_hCol: 8, b_amplitude: 10, 
+        b_rCol: 44,  // Tucked in (Default was 45, Roof is 46)
+        b_rRoof: 46, // Wider Roof
+        b_rInner: 7,
+        b_hCenter: 29.25, b_overhang: 12,
+        b_thickness: 2.0, // Default Thickness
 
         c_visible: true, c_amplitude: 3, c_rTopCap: 3, c_colRadius: 0.25,
         c_colHeight: 1.0125, c_coneHeight: 2.421, c_overhang: 3.19,      
@@ -517,47 +520,85 @@
 
         const bTotalSegs = params.b_segments * 2;
 
-        // --- A. MAIN BUILDING ROOF ---
-        const b_rPeak = params.b_rCol + params.b_overhang; 
+        // --- A. MAIN BUILDING ROOF (Uses b_rRoof) ---
+        const b_rPeak = params.b_rRoof + params.b_overhang; // Base on Roof Radius
         const b_hPeak = params.b_hCol + params.b_amplitude;
 
-        // Roof
-        const roofGeo = new THREE.BufferGeometry();
-        const rPos = []; const rIdx = [];
+        // SOLID ROOF GENERATION
+        const roofVertices = [];
+        const roofIndices = [];
+        
         for(let i=0; i<bTotalSegs; i++){
             const ang = (i/bTotalSegs) * Math.PI * 2;
             const isValley = i % 2 === 0;
-            rPos.push(Math.cos(ang)*params.b_rInner, params.b_hCenter, Math.sin(ang)*params.b_rInner);
-            const r = isValley ? params.b_rCol : b_rPeak;
-            const h = isValley ? params.b_hCol : b_hPeak;
-            rPos.push(Math.cos(ang)*r, h, Math.sin(ang)*r);
+            
+            // Calculate Base Heights and Radii
+            const r_inner = params.b_rInner;
+            const h_inner = params.b_hCenter;
+            
+            // USE b_rRoof HERE
+            const r_outer = isValley ? params.b_rRoof : b_rPeak;
+            const h_outer = isValley ? params.b_hCol : b_hPeak;
+            
+            // Coordinates
+            const ix = Math.cos(ang) * r_inner;
+            const iz = Math.sin(ang) * r_inner;
+            const ox = Math.cos(ang) * r_outer;
+            const oz = Math.sin(ang) * r_outer;
+            
+            // Push 4 vertices per segment slice
+            roofVertices.push(ix, h_inner, iz); // 0: Inner Top
+            roofVertices.push(ox, h_outer, oz); // 1: Outer Top
+            roofVertices.push(ix, h_inner - params.b_thickness, iz); // 2: Inner Bottom
+            roofVertices.push(ox, h_outer - params.b_thickness, oz); // 3: Outer Bottom
         }
+        
+        // Generate Indices (Stitching the Solid)
         for(let i=0; i<bTotalSegs; i++){
-            const ci=i*2; const co=i*2+1; const n=(i+1)%bTotalSegs; const ni=n*2; const no=n*2+1;
-            rIdx.push(ci, co, ni); rIdx.push(co, no, ni);
+            const current = i * 4;
+            const next = ((i + 1) % bTotalSegs) * 4;
+            
+            // Top Surface
+            roofIndices.push(current + 0, current + 1, next + 0);
+            roofIndices.push(current + 1, next + 1, next + 0);
+            // Bottom Surface
+            roofIndices.push(current + 2, next + 2, current + 3);
+            roofIndices.push(current + 3, next + 2, next + 3);
+            // Outer Rim
+            roofIndices.push(current + 1, current + 3, next + 1);
+            roofIndices.push(current + 3, next + 3, next + 1);
+            // Inner Rim
+            roofIndices.push(current + 0, next + 0, current + 2);
+            roofIndices.push(current + 2, next + 0, next + 2);
         }
-        roofGeo.setAttribute('position', new THREE.Float32BufferAttribute(rPos, 3));
-        roofGeo.setIndex(rIdx); roofGeo.computeVertexNormals();
+
+        const roofGeo = new THREE.BufferGeometry();
+        roofGeo.setAttribute('position', new THREE.Float32BufferAttribute(roofVertices, 3));
+        roofGeo.setIndex(roofIndices);
+        roofGeo.computeVertexNormals();
         
         const roofMesh = new THREE.Mesh(roofGeo, matConcrete);
         roofMesh.castShadow = true; roofMesh.receiveShadow = true;
-        roofMesh.name = "Roof_Mesh"; // Name internal mesh
+        roofMesh.name = "Roof_Solid_Mesh";
         grp_Roof.add(roofMesh);
         if(params.show_outline) grp_Roof.add(new THREE.Mesh(roofGeo, matOutline));
 
-        // --- COLUMNS (V-SHAPE / INVERTED PYRAMID) ---
+        // --- COLUMNS (Uses b_rCol) ---
         const colGeo = new THREE.CylinderGeometry(2.2, 0.7, params.b_hCol, 4);
 
         for(let i=0; i<bTotalSegs; i+=2){
             const ang = (i/bTotalSegs) * Math.PI * 2;
             const m = new THREE.Mesh(colGeo, matCol);
-            m.position.set(Math.cos(ang)*params.b_rCol, params.b_hCol/2, Math.sin(ang)*params.b_rCol);
             
+            // USE b_rCol DIRECTLY (Already tucked in via defaults)
+            const colRadius = params.b_rCol;
+            
+            m.position.set(Math.cos(ang)*colRadius, params.b_hCol/2, Math.sin(ang)*colRadius);
             m.lookAt(0, params.b_hCol/2, 0); 
             m.rotateY(Math.PI / 4); 
             
             m.castShadow = true; m.receiveShadow = true;
-            m.name = "Column_Mesh_" + i; // Explicit naming
+            m.name = "Column_Mesh_" + i; 
             grp_Columns.add(m);
             if(params.show_outline){
                  const mo = new THREE.Mesh(colGeo, matOutline);
@@ -567,7 +608,7 @@
             }
         }
 
-        // --- CURTAIN WALL ---
+        // --- CURTAIN WALL (Uses b_rCol) ---
         const numCols = params.b_segments;
         const angleStep = (Math.PI * 2) / numCols;
         const frameThick = 0.15;
@@ -577,10 +618,12 @@
             const a1 = i * angleStep; 
             const a2 = (i+1) * angleStep;
             
+            // CURTAIN WALL FOLLOWS COLUMN RADIUS
             const r = params.b_rCol; 
             const x1 = Math.cos(a1) * r; const z1 = Math.sin(a1) * r; 
             const x2 = Math.cos(a2) * r; const z2 = Math.sin(a2) * r; 
             
+            // Peak calc
             const aMid = (a1 + a2) / 2;
             const rPeak = params.b_rCol + params.b_overhang;
             const hPeak = params.b_hCol + params.b_amplitude; 
@@ -612,7 +655,7 @@
             segGroup.add(glass);
             grp_Glass.add(segGroup);
 
-            // Seg Group for Frames (Separate so we can add to Frame Layer)
+            // Seg Group for Frames
             const frameSeg = new THREE.Group();
             frameSeg.position.set(cx, 0, cz);
             frameSeg.rotation.y = -ang;
@@ -758,8 +801,14 @@
 
     const fBuild = gui.addFolder('Géométrie Bâtiment');
     fBuild.add(params, 'b_segments', 3, 32, 1).name('Nb. Colonnes').onChange(generate);
+    
+    // NEW SEPARATE RADIUS PARAMETERS
+    fBuild.add(params, 'b_rCol', 20, 100).name('Rayon Colonnes').onChange(generate);
+    fBuild.add(params, 'b_rRoof', 20, 100).name('Rayon Toit').onChange(generate);
+    
     fBuild.add(params, 'b_hCenter', 15, 40).name('Hauteur Centre').onChange(generate);
     fBuild.add(params, 'b_overhang', 5, 25).name('Porte-à-faux').onChange(generate);
+    fBuild.add(params, 'b_thickness', 0.1, 5.0).name('Epaisseur Toit').onChange(generate);
     
     const fCrown = gui.addFolder('Géométrie Couronne');
     fCrown.add(params, 'c_visible').name('Afficher').onChange(generate);
