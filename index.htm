@@ -170,10 +170,22 @@
             transform: rotate(90deg);
         }
 
+        /* DOWNLOAD BUTTON */
+        #download-btn {
+            top: 80px; /* Below settings toggle */
+            right: 20px;
+            z-index: 101;
+        }
+        #download-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--accent);
+        }
+
         /* --- GUI CONTAINER --- */
         #gui-container {
             position: absolute;
-            top: 80px;
+            top: 140px; /* Moved down to make room for download button */
             right: 20px;
             z-index: 100;
             transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -265,7 +277,8 @@
             h1 span { font-size: 9px; }
 
             #settings-toggle { top: 15px; right: 15px; }
-            #gui-container { top: 75px; right: 15px; }
+            #download-btn { top: 70px; right: 15px; }
+            #gui-container { top: 125px; right: 15px; } /* Shifted down */
             .lil-gui { --width: 260px; }
 
             #info-card {
@@ -319,6 +332,12 @@
         </svg>
     </div>
 
+    <div id="download-btn" class="floating-btn" aria-label="Download OBJ">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19,9h-4V3H9v6H5l7,7L19,9z M5,18v2h14v-2H5z"/>
+        </svg>
+    </div>
+
     <div id="gui-container" class="gui-closed"></div>
 
     <footer id="footer">
@@ -337,6 +356,7 @@
 <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { OBJExporter } from 'three/addons/exporters/OBJExporter.js'; // Import OBJ Exporter
     import GUI from 'lil-gui';
 
     // --- Detect Mobile ---
@@ -403,14 +423,13 @@
     document.body.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    // --- ZOOM SETTINGS UPDATED HERE ---
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enableZoom = true;
-    controls.zoomSpeed = 0.8;      // Lower speed for smoother control
-    controls.rotateSpeed = 0.8;    // Matches zoom feel
-    controls.minDistance = 20;     // Prevents clipping inside model
-    controls.maxDistance = 500;    // Limits how far you can go
+    controls.zoomSpeed = 0.8;      
+    controls.rotateSpeed = 0.8;    
+    controls.minDistance = 20;     
+    controls.maxDistance = 500;    
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
 
     // --- Lighting ---
@@ -439,6 +458,11 @@
     const matCol = new THREE.MeshStandardMaterial({ roughness: 0.7 });
     const matGround = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 });
 
+    const matGlass = new THREE.MeshStandardMaterial({ 
+        color: 0x88aabb, roughness: 0.1, metalness: 0.8, transparent: true, opacity: 0.3, side: THREE.DoubleSide
+    });
+    const matFrame = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8, metalness: 0.2 });
+
     const matOutline = new THREE.MeshBasicMaterial({
         color: 0x000000, wireframe: true, side: THREE.DoubleSide,
         polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4,
@@ -448,8 +472,10 @@
     // --- Object Groups ---
     let mainBuildingGroup = new THREE.Group();
     let crownGroup = new THREE.Group();
+    let curtainWallGroup = new THREE.Group(); 
     scene.add(mainBuildingGroup);
     scene.add(crownGroup);
+    scene.add(curtainWallGroup);
     let groundMesh;
 
     // --- PARAMETERS ---
@@ -468,6 +494,7 @@
     function generate() {
         mainBuildingGroup.clear();
         crownGroup.clear();
+        curtainWallGroup.clear();
         if(groundMesh) scene.remove(groundMesh);
 
         matConcrete.color.set(params.col_roof);
@@ -504,23 +531,108 @@
         mainBuildingGroup.add(roofMesh);
         if(params.show_outline) mainBuildingGroup.add(new THREE.Mesh(roofGeo, matOutline));
 
-        // Columns
-        const colGeo = new THREE.BoxGeometry(1.5, params.b_hCol, 1.5);
+        // --- COLUMNS (V-SHAPE / INVERTED PYRAMID) ---
+        const colGeo = new THREE.CylinderGeometry(2.2, 0.7, params.b_hCol, 4);
+
         for(let i=0; i<bTotalSegs; i+=2){
             const ang = (i/bTotalSegs) * Math.PI * 2;
             const m = new THREE.Mesh(colGeo, matCol);
             m.position.set(Math.cos(ang)*params.b_rCol, params.b_hCol/2, Math.sin(ang)*params.b_rCol);
-            m.lookAt(0, params.b_hCol/2, 0);
+            
+            m.lookAt(0, params.b_hCol/2, 0); 
+            m.rotateY(Math.PI / 4); 
+            
             m.castShadow = true; m.receiveShadow = true;
             mainBuildingGroup.add(m);
             if(params.show_outline){
                  const mo = new THREE.Mesh(colGeo, matOutline);
-                 mo.position.copy(m.position); mo.rotation.copy(m.rotation);
+                 mo.position.copy(m.position); 
+                 mo.rotation.copy(m.rotation);
                  mainBuildingGroup.add(mo);
             }
         }
 
-        // --- B. CROWN ---
+        // --- CURTAIN WALL ---
+        const numCols = params.b_segments;
+        const angleStep = (Math.PI * 2) / numCols;
+        const frameThick = 0.15;
+        const frameDepth = 0.2;
+
+        for(let i=0; i<numCols; i++) {
+            const a1 = i * angleStep; 
+            const a2 = (i+1) * angleStep;
+            
+            const r = params.b_rCol; 
+            const x1 = Math.cos(a1) * r; const z1 = Math.sin(a1) * r; 
+            const x2 = Math.cos(a2) * r; const z2 = Math.sin(a2) * r; 
+            
+            const aMid = (a1 + a2) / 2;
+            const rPeak = params.b_rCol + params.b_overhang;
+            const hPeak = params.b_hCol + params.b_amplitude; 
+            
+            const cx = (x1+x2)/2; const cz = (z1+z2)/2;
+            const dist = Math.sqrt((x2-x1)**2 + (z2-z1)**2);
+            const ang = Math.atan2(z2-z1, x2-x1);
+            
+            const segGroup = new THREE.Group();
+            segGroup.position.set(cx, 0, cz);
+            segGroup.rotation.y = -ang; 
+            
+            const hCol = params.b_hCol;
+            
+            const shape = new THREE.Shape();
+            shape.moveTo(-dist/2, 0);       
+            shape.lineTo(dist/2, 0);        
+            shape.lineTo(dist/2, hCol);     
+            shape.lineTo(0, hPeak);         
+            shape.lineTo(-dist/2, hCol);    
+            shape.lineTo(-dist/2, 0);       
+            
+            const glassGeo = new THREE.ShapeGeometry(shape);
+            const glass = new THREE.Mesh(glassGeo, matGlass);
+            glass.position.z = 0;
+            segGroup.add(glass);
+
+            const numVertPanels = 3;
+            const panelW = dist / numVertPanels;
+            for(let j=0; j<=numVertPanels; j++) {
+                const localX = -dist/2 + j*panelW;
+                let hAtX;
+                if (localX < 0) {
+                    const t = (localX - (-dist/2)) / (dist/2); 
+                    hAtX = hCol + (hPeak - hCol) * t;
+                } else {
+                    const t = (localX - 0) / (dist/2); 
+                    hAtX = hPeak - (hPeak - hCol) * t;
+                }
+                const vFrame = new THREE.Mesh(new THREE.BoxGeometry(frameThick, hAtX, frameDepth), matFrame);
+                vFrame.position.set(localX, hAtX/2, 0);
+                segGroup.add(vFrame);
+            }
+            
+            const yPositions = [hCol/3, hCol*0.66];
+            yPositions.forEach(y => {
+                const hFrame = new THREE.Mesh(new THREE.BoxGeometry(dist, frameThick, frameDepth), matFrame);
+                hFrame.position.set(0, y, 0);
+                segGroup.add(hFrame);
+            });
+            
+            const slopeLen = Math.sqrt((dist/2)**2 + (hPeak-hCol)**2);
+            const slopeAng = Math.atan2(hPeak-hCol, dist/2);
+            const leftSlope = new THREE.Mesh(new THREE.BoxGeometry(slopeLen, frameThick, frameDepth), matFrame);
+            leftSlope.position.set(-dist/4, hCol + (hPeak-hCol)/2, 0);
+            leftSlope.rotation.z = slopeAng;
+            segGroup.add(leftSlope);
+            
+            const rightSlope = new THREE.Mesh(new THREE.BoxGeometry(slopeLen, frameThick, frameDepth), matFrame);
+            rightSlope.position.set(dist/4, hCol + (hPeak-hCol)/2, 0);
+            rightSlope.rotation.z = -slopeAng;
+            segGroup.add(rightSlope);
+
+            curtainWallGroup.add(segGroup);
+        }
+
+        // --- B. CROWN (Wavy Roof + Cylindrical Columns) ---
         if(params.c_visible) {
             const cTotalSegs = bTotalSegs; 
             const yCrownBaseLevel = params.b_hCenter + params.c_colHeight;
@@ -573,6 +685,25 @@
         scene.add(groundMesh);
     }
 
+    // --- DOWNLOAD LOGIC ---
+    function exportOBJ() {
+        const exporter = new OBJExporter();
+        // Create export group excluding ground
+        const exportGroup = new THREE.Group();
+        exportGroup.add(mainBuildingGroup.clone());
+        exportGroup.add(crownGroup.clone());
+        exportGroup.add(curtainWallGroup.clone());
+        
+        const result = exporter.parse(exportGroup);
+        const blob = new Blob([result], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'kamra_rabat_model.obj';
+        link.click();
+    }
+    
+    document.getElementById('download-btn').addEventListener('click', exportOBJ);
+
     // --- GUI Setup ---
     const gui = new GUI({ 
         title: "Paramètres", 
@@ -605,6 +736,7 @@
         const t = Date.now() * 0.0002;
         mainBuildingGroup.rotation.y = t;
         crownGroup.rotation.y = t;
+        curtainWallGroup.rotation.y = t; 
         controls.update();
         renderer.render(scene, camera);
     }
