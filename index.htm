@@ -470,18 +470,18 @@
     });
 
     // --- Object Groups (CATEGORIZED FOR EXPORT) ---
-    // Instead of hierarchical groups, we create category groups for OBJ export clarity
+    // Explicitly naming these groups creates "g GroupName" in the OBJ file.
     const grp_Roof = new THREE.Group();
-    grp_Roof.name = "Roof";
+    grp_Roof.name = "01_Roof"; // Renamed for Rhino clarity
     
     const grp_Columns = new THREE.Group();
-    grp_Columns.name = "Columns";
+    grp_Columns.name = "02_Columns";
     
     const grp_Glass = new THREE.Group();
-    grp_Glass.name = "Glass";
+    grp_Glass.name = "03_Glass";
     
     const grp_Frames = new THREE.Group();
-    grp_Frames.name = "Frames";
+    grp_Frames.name = "04_Frames";
 
     scene.add(grp_Roof);
     scene.add(grp_Columns);
@@ -541,6 +541,7 @@
         
         const roofMesh = new THREE.Mesh(roofGeo, matConcrete);
         roofMesh.castShadow = true; roofMesh.receiveShadow = true;
+        roofMesh.name = "Roof_Mesh"; // Name internal mesh
         grp_Roof.add(roofMesh);
         if(params.show_outline) grp_Roof.add(new THREE.Mesh(roofGeo, matOutline));
 
@@ -556,6 +557,7 @@
             m.rotateY(Math.PI / 4); 
             
             m.castShadow = true; m.receiveShadow = true;
+            m.name = "Column_Mesh_" + i; // Explicit naming
             grp_Columns.add(m);
             if(params.show_outline){
                  const mo = new THREE.Mesh(colGeo, matOutline);
@@ -587,10 +589,10 @@
             const dist = Math.sqrt((x2-x1)**2 + (z2-z1)**2);
             const ang = Math.atan2(z2-z1, x2-x1);
             
-            // Seg Group for Glass (local transform)
-            const glassSeg = new THREE.Group();
-            glassSeg.position.set(cx, 0, cz);
-            glassSeg.rotation.y = -ang; 
+            const segGroup = new THREE.Group();
+            segGroup.name = "Bay_" + i;
+            segGroup.position.set(cx, 0, cz);
+            segGroup.rotation.y = -ang; 
             
             const hCol = params.b_hCol;
             
@@ -605,11 +607,12 @@
             
             const glassGeo = new THREE.ShapeGeometry(shape);
             const glass = new THREE.Mesh(glassGeo, matGlass);
+            glass.name = "Glass_Pane_" + i;
             glass.position.z = 0;
-            glassSeg.add(glass);
-            grp_Glass.add(glassSeg); // Add to specific category
+            segGroup.add(glass);
+            grp_Glass.add(segGroup);
 
-            // Seg Group for Frames
+            // Seg Group for Frames (Separate so we can add to Frame Layer)
             const frameSeg = new THREE.Group();
             frameSeg.position.set(cx, 0, cz);
             frameSeg.rotation.y = -ang;
@@ -628,6 +631,7 @@
                     hAtX = hPeak - (hPeak - hCol) * t;
                 }
                 const vFrame = new THREE.Mesh(new THREE.BoxGeometry(frameThick, hAtX, frameDepth), matFrame);
+                vFrame.name = "Frame_V_" + i + "_" + j;
                 vFrame.position.set(localX, hAtX/2, 0);
                 frameSeg.add(vFrame);
             }
@@ -636,6 +640,7 @@
             const yPositions = [hCol/3, hCol*0.66];
             yPositions.forEach(y => {
                 const hFrame = new THREE.Mesh(new THREE.BoxGeometry(dist, frameThick, frameDepth), matFrame);
+                hFrame.name = "Frame_H_" + i;
                 hFrame.position.set(0, y, 0);
                 frameSeg.add(hFrame);
             });
@@ -645,19 +650,21 @@
             const slopeAng = Math.atan2(hPeak-hCol, dist/2);
             
             const leftSlope = new THREE.Mesh(new THREE.BoxGeometry(slopeLen, frameThick, frameDepth), matFrame);
+            leftSlope.name = "Frame_Slope_L_" + i;
             leftSlope.position.set(-dist/4, hCol + (hPeak-hCol)/2, 0);
             leftSlope.rotation.z = slopeAng;
             frameSeg.add(leftSlope);
             
             const rightSlope = new THREE.Mesh(new THREE.BoxGeometry(slopeLen, frameThick, frameDepth), matFrame);
+            rightSlope.name = "Frame_Slope_R_" + i;
             rightSlope.position.set(dist/4, hCol + (hPeak-hCol)/2, 0);
             rightSlope.rotation.z = -slopeAng;
             frameSeg.add(rightSlope);
 
-            grp_Frames.add(frameSeg); // Add to specific category
+            grp_Frames.add(frameSeg); 
         }
 
-        // --- B. CROWN (Wavy Roof + Cylindrical Columns) ---
+        // --- B. CROWN ---
         if(params.c_visible) {
             const cTotalSegs = bTotalSegs; 
             const yCrownBaseLevel = params.b_hCenter + params.c_colHeight;
@@ -686,7 +693,8 @@
             
             const crownRoofMesh = new THREE.Mesh(crownGeo, matCrown);
             crownRoofMesh.castShadow = true; crownRoofMesh.receiveShadow = true;
-            grp_Roof.add(crownRoofMesh); // Add to Roof Category
+            crownRoofMesh.name = "Crown_Roof";
+            grp_Roof.add(crownRoofMesh); // Add to Roof Layer
             if(params.show_outline) grp_Roof.add(new THREE.Mesh(crownGeo, matOutline));
 
             const cColGeo = new THREE.CylinderGeometry(params.c_colRadius, params.c_colRadius, params.c_colHeight, 8);
@@ -695,7 +703,8 @@
                 const m = new THREE.Mesh(cColGeo, matCol);
                 m.position.set(Math.cos(ang)*rCrownInner, params.b_hCenter + params.c_colHeight/2, Math.sin(ang)*rCrownInner);
                 m.castShadow = true; m.receiveShadow = true;
-                grp_Columns.add(m); // Add to Columns Category
+                m.name = "Crown_Column_" + i;
+                grp_Columns.add(m); // Add to Columns Layer
                 if(params.show_outline){
                     const mo = new THREE.Mesh(cColGeo, matOutline);
                     mo.position.copy(m.position); grp_Columns.add(mo);
@@ -726,6 +735,9 @@
         link.href = URL.createObjectURL(blob);
         link.download = 'kamra_rabat_model.obj';
         link.click();
+        
+        // IMPORTANT ALERT FOR USER
+        alert("Downloaded! \n\nIMPORTANT FOR RHINO USERS:\nWhen opening this file, you MUST check the option:\n'Map OBJ groups to layers'\n(Importer les groupes OBJ comme calques)\n\nOtherwise it will be one single object.");
     }
     
     document.getElementById('download-btn').addEventListener('click', exportOBJ);
@@ -760,7 +772,7 @@
     function animate() {
         requestAnimationFrame(animate);
         const t = Date.now() * 0.0002;
-        // Rotate all category groups
+        // Rotate category groups
         grp_Roof.rotation.y = t;
         grp_Columns.rotation.y = t;
         grp_Glass.rotation.y = t;
