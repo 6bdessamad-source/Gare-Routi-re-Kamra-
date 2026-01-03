@@ -172,7 +172,7 @@
 
         /* DOWNLOAD BUTTON */
         #download-btn {
-            top: 80px; /* Below settings toggle */
+            top: 80px; 
             right: 20px;
             z-index: 101;
         }
@@ -185,7 +185,7 @@
         /* --- GUI CONTAINER --- */
         #gui-container {
             position: absolute;
-            top: 140px; /* Moved down to make room for download button */
+            top: 140px; 
             right: 20px;
             z-index: 100;
             transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -278,7 +278,7 @@
 
             #settings-toggle { top: 15px; right: 15px; }
             #download-btn { top: 70px; right: 15px; }
-            #gui-container { top: 125px; right: 15px; } /* Shifted down */
+            #gui-container { top: 125px; right: 15px; }
             .lil-gui { --width: 260px; }
 
             #info-card {
@@ -356,7 +356,7 @@
 <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { OBJExporter } from 'three/addons/exporters/OBJExporter.js'; // Import OBJ Exporter
+    import { OBJExporter } from 'three/addons/exporters/OBJExporter.js'; 
     import GUI from 'lil-gui';
 
     // --- Detect Mobile ---
@@ -469,13 +469,25 @@
         transparent: true, opacity: 0.6
     });
 
-    // --- Object Groups ---
-    let mainBuildingGroup = new THREE.Group();
-    let crownGroup = new THREE.Group();
-    let curtainWallGroup = new THREE.Group(); 
-    scene.add(mainBuildingGroup);
-    scene.add(crownGroup);
-    scene.add(curtainWallGroup);
+    // --- Object Groups (CATEGORIZED FOR EXPORT) ---
+    // Instead of hierarchical groups, we create category groups for OBJ export clarity
+    const grp_Roof = new THREE.Group();
+    grp_Roof.name = "Roof";
+    
+    const grp_Columns = new THREE.Group();
+    grp_Columns.name = "Columns";
+    
+    const grp_Glass = new THREE.Group();
+    grp_Glass.name = "Glass";
+    
+    const grp_Frames = new THREE.Group();
+    grp_Frames.name = "Frames";
+
+    scene.add(grp_Roof);
+    scene.add(grp_Columns);
+    scene.add(grp_Glass);
+    scene.add(grp_Frames);
+
     let groundMesh;
 
     // --- PARAMETERS ---
@@ -492,9 +504,10 @@
     };
 
     function generate() {
-        mainBuildingGroup.clear();
-        crownGroup.clear();
-        curtainWallGroup.clear();
+        grp_Roof.clear();
+        grp_Columns.clear();
+        grp_Glass.clear();
+        grp_Frames.clear();
         if(groundMesh) scene.remove(groundMesh);
 
         matConcrete.color.set(params.col_roof);
@@ -504,7 +517,7 @@
 
         const bTotalSegs = params.b_segments * 2;
 
-        // --- A. MAIN BUILDING ---
+        // --- A. MAIN BUILDING ROOF ---
         const b_rPeak = params.b_rCol + params.b_overhang; 
         const b_hPeak = params.b_hCol + params.b_amplitude;
 
@@ -528,8 +541,8 @@
         
         const roofMesh = new THREE.Mesh(roofGeo, matConcrete);
         roofMesh.castShadow = true; roofMesh.receiveShadow = true;
-        mainBuildingGroup.add(roofMesh);
-        if(params.show_outline) mainBuildingGroup.add(new THREE.Mesh(roofGeo, matOutline));
+        grp_Roof.add(roofMesh);
+        if(params.show_outline) grp_Roof.add(new THREE.Mesh(roofGeo, matOutline));
 
         // --- COLUMNS (V-SHAPE / INVERTED PYRAMID) ---
         const colGeo = new THREE.CylinderGeometry(2.2, 0.7, params.b_hCol, 4);
@@ -543,12 +556,12 @@
             m.rotateY(Math.PI / 4); 
             
             m.castShadow = true; m.receiveShadow = true;
-            mainBuildingGroup.add(m);
+            grp_Columns.add(m);
             if(params.show_outline){
                  const mo = new THREE.Mesh(colGeo, matOutline);
                  mo.position.copy(m.position); 
                  mo.rotation.copy(m.rotation);
-                 mainBuildingGroup.add(mo);
+                 grp_Columns.add(mo);
             }
         }
 
@@ -574,12 +587,14 @@
             const dist = Math.sqrt((x2-x1)**2 + (z2-z1)**2);
             const ang = Math.atan2(z2-z1, x2-x1);
             
-            const segGroup = new THREE.Group();
-            segGroup.position.set(cx, 0, cz);
-            segGroup.rotation.y = -ang; 
+            // Seg Group for Glass (local transform)
+            const glassSeg = new THREE.Group();
+            glassSeg.position.set(cx, 0, cz);
+            glassSeg.rotation.y = -ang; 
             
             const hCol = params.b_hCol;
             
+            // GLASS
             const shape = new THREE.Shape();
             shape.moveTo(-dist/2, 0);       
             shape.lineTo(dist/2, 0);        
@@ -591,8 +606,15 @@
             const glassGeo = new THREE.ShapeGeometry(shape);
             const glass = new THREE.Mesh(glassGeo, matGlass);
             glass.position.z = 0;
-            segGroup.add(glass);
+            glassSeg.add(glass);
+            grp_Glass.add(glassSeg); // Add to specific category
 
+            // Seg Group for Frames
+            const frameSeg = new THREE.Group();
+            frameSeg.position.set(cx, 0, cz);
+            frameSeg.rotation.y = -ang;
+
+            // FRAMES (Vertical)
             const numVertPanels = 3;
             const panelW = dist / numVertPanels;
             for(let j=0; j<=numVertPanels; j++) {
@@ -607,29 +629,32 @@
                 }
                 const vFrame = new THREE.Mesh(new THREE.BoxGeometry(frameThick, hAtX, frameDepth), matFrame);
                 vFrame.position.set(localX, hAtX/2, 0);
-                segGroup.add(vFrame);
+                frameSeg.add(vFrame);
             }
             
+            // Horizontal
             const yPositions = [hCol/3, hCol*0.66];
             yPositions.forEach(y => {
                 const hFrame = new THREE.Mesh(new THREE.BoxGeometry(dist, frameThick, frameDepth), matFrame);
                 hFrame.position.set(0, y, 0);
-                segGroup.add(hFrame);
+                frameSeg.add(hFrame);
             });
             
+            // Angled Top
             const slopeLen = Math.sqrt((dist/2)**2 + (hPeak-hCol)**2);
             const slopeAng = Math.atan2(hPeak-hCol, dist/2);
+            
             const leftSlope = new THREE.Mesh(new THREE.BoxGeometry(slopeLen, frameThick, frameDepth), matFrame);
             leftSlope.position.set(-dist/4, hCol + (hPeak-hCol)/2, 0);
             leftSlope.rotation.z = slopeAng;
-            segGroup.add(leftSlope);
+            frameSeg.add(leftSlope);
             
             const rightSlope = new THREE.Mesh(new THREE.BoxGeometry(slopeLen, frameThick, frameDepth), matFrame);
             rightSlope.position.set(dist/4, hCol + (hPeak-hCol)/2, 0);
             rightSlope.rotation.z = -slopeAng;
-            segGroup.add(rightSlope);
+            frameSeg.add(rightSlope);
 
-            curtainWallGroup.add(segGroup);
+            grp_Frames.add(frameSeg); // Add to specific category
         }
 
         // --- B. CROWN (Wavy Roof + Cylindrical Columns) ---
@@ -661,8 +686,8 @@
             
             const crownRoofMesh = new THREE.Mesh(crownGeo, matCrown);
             crownRoofMesh.castShadow = true; crownRoofMesh.receiveShadow = true;
-            crownGroup.add(crownRoofMesh);
-            if(params.show_outline) crownGroup.add(new THREE.Mesh(crownGeo, matOutline));
+            grp_Roof.add(crownRoofMesh); // Add to Roof Category
+            if(params.show_outline) grp_Roof.add(new THREE.Mesh(crownGeo, matOutline));
 
             const cColGeo = new THREE.CylinderGeometry(params.c_colRadius, params.c_colRadius, params.c_colHeight, 8);
             for(let i=0; i<cTotalSegs; i+=2){ 
@@ -670,10 +695,10 @@
                 const m = new THREE.Mesh(cColGeo, matCol);
                 m.position.set(Math.cos(ang)*rCrownInner, params.b_hCenter + params.c_colHeight/2, Math.sin(ang)*rCrownInner);
                 m.castShadow = true; m.receiveShadow = true;
-                crownGroup.add(m);
+                grp_Columns.add(m); // Add to Columns Category
                 if(params.show_outline){
                     const mo = new THREE.Mesh(cColGeo, matOutline);
-                    mo.position.copy(m.position); crownGroup.add(mo);
+                    mo.position.copy(m.position); grp_Columns.add(mo);
                 }
             }
         }
@@ -688,11 +713,12 @@
     // --- DOWNLOAD LOGIC ---
     function exportOBJ() {
         const exporter = new OBJExporter();
-        // Create export group excluding ground
         const exportGroup = new THREE.Group();
-        exportGroup.add(mainBuildingGroup.clone());
-        exportGroup.add(crownGroup.clone());
-        exportGroup.add(curtainWallGroup.clone());
+        // Add categorized groups
+        exportGroup.add(grp_Roof.clone());
+        exportGroup.add(grp_Columns.clone());
+        exportGroup.add(grp_Glass.clone());
+        exportGroup.add(grp_Frames.clone());
         
         const result = exporter.parse(exportGroup);
         const blob = new Blob([result], { type: 'text/plain' });
@@ -734,9 +760,12 @@
     function animate() {
         requestAnimationFrame(animate);
         const t = Date.now() * 0.0002;
-        mainBuildingGroup.rotation.y = t;
-        crownGroup.rotation.y = t;
-        curtainWallGroup.rotation.y = t; 
+        // Rotate all category groups
+        grp_Roof.rotation.y = t;
+        grp_Columns.rotation.y = t;
+        grp_Glass.rotation.y = t;
+        grp_Frames.rotation.y = t;
+        
         controls.update();
         renderer.render(scene, camera);
     }
